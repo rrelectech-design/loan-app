@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1e3a8a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<title>Loan Manager</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }
+  .box { max-width: 950px; margin: auto; background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .top { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px; }
+  h2 { margin: 0; color: #1e3a8a; font-size: 18px; }
+  .rem { background: #fffbeb; border-left: 5px solid #f59e0b; padding: 10px; margin-bottom: 12px; border-radius: 5px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; background: #f8fafc; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
+  .field { display: flex; flex-direction: column; }
+  .field label { font-size: 11px; font-weight: bold; margin-bottom: 3px; color: #334155; }
+  input, select { padding: 9px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 14px; width: 100%; }
+  .preview { background: #ecfdf5; border: 2px solid #10b981; color: #065f46; padding: 10px; border-radius: 6px; font-weight: bold; margin-top: 10px; text-align: center; font-size: 13px; }
+  .add-btn { width: 100%; padding: 13px; background: #16a34a; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+  .tbl-wrap { overflow-x: auto; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; min-width: 600px; }
+  th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 13px; }
+  th { background: #1e293b; color: #fff; }
+  .btn { padding: 7px 9px; border: none; border-radius: 5px; color: #fff; cursor: pointer; font-size: 12px; margin: 2px; font-weight: bold; }
+  .hist { margin-top: 14px; padding: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; display: none; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="top">
+    <h2>💰 Loan & Interest App</h2>
+    <button class="btn" style="background:#0f766e;" onclick="exportData()">Export Excel</button>
+  </div>
+  <div class="rem"><b>🔔 Today Reminders:</b><div id="remBox" style="margin-top:4px;">No dues today.</div></div>
+  <div class="grid">
+    <div class="field"><label>Name</label><input type="text" id="pName" placeholder="Raj Mess"></div>
+    <div class="field"><label>Initial Amount</label><input type="number" id="pAmt" placeholder="1500000" oninput="calc()"></div>
+    <div class="field"><label>Interest %</label><input type="number" id="pRate" placeholder="2.5" step="0.1" oninput="calc()"></div>
+    <div class="field"><label>Interest Months</label><input type="number" id="pMonths" value="1" oninput="calc()"></div>
+    <div class="field"><label>Already Paid</label><input type="number" id="pPaid" value="0" oninput="calc()"></div>
+    <div class="field"><label>Installment</label><input type="number" id="pInst" placeholder="37500"></div>
+    <div class="field"><label>Type</label><select id="pType"><option value="Monthly">Monthly</option><option value="Daily">Daily</option></select></div>
+    <div class="field"><label>Loan Date (DD/MM/YYYY)</label><input type="text" id="pLoanDate"></div>
+    <div class="field"><label>Next Due (DD/MM/YYYY)</label><input type="text" id="pDate"></div>
+  </div>
+  <div class="preview" id="previewBox">1 Month Interest: 0 | Total Interest: 0 | Current Balance: 0</div>
+  <button class="add-btn" onclick="addLoan()">+ Add Loan Account</button>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Name & Date</th><th>Initial</th><th>Interest %</th><th>Installment</th><th>Balance</th><th>Next Due</th><th>Actions</th></tr></thead>
+      <tbody id="listBody"></tbody>
+    </table>
+  </div>
+  <div id="histBox" class="hist">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><b id="histTitle">History</b><button class="btn" style="background:#64748b;" onclick="closeHist()">Close</button></div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>#</th><th>Date</th><th>Month / Note</th><th>Amount</th><th>Balance</th></tr></thead><tbody id="histBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script>
+var db = [];
+function getDMY(d) {
+  var dd = ("0" + d.getDate()).slice(-2);
+  var mm = ("0" + (d.getMonth() + 1)).slice(-2);
+  return dd + "/" + mm + "/" + d.getFullYear();
+}
+function today() { return getDMY(new Date()); }
+function toDate(s) {
+  if (!s || s.length < 10) return new Date();
+  return new Date(Number(s.slice(6, 10)), Number(s.slice(3, 5)) - 1, Number(s.slice(0, 2)));
+}
+document.getElementById("pLoanDate").value = today();
+document.getElementById("pDate").value = today();
+try { var s = localStorage.getItem("loan_mobile_app"); if (s) db = JSON.parse(s); } catch (e) {}
+function save() { try { localStorage.setItem("loan_mobile_app", JSON.stringify(db)); } catch (e) {} }
+
+function calc() {
+  var a = Number(document.getElementById("pAmt").value) || 0;
+  var r = Number(document.getElementById("pRate").value) || 0;
+  var m = Number(document.getElementById("pMonths").value) || 0;
+  var p = Number(document.getElementById("pPaid").value) || 0;
+  var mi = (a * r) / 100;
+  var ti = mi * m;
+  var b = Math.max(0, (a + ti) - p);
+  document.getElementById("previewBox").innerText = "1 Month Interest: " + mi + " | " + m + " Months Interest: " + ti + " | Current Balance: " + b;
+}
+
+function addLoan() {
+  var name = document.getElementById("pName").value.trim();
+  var amt = Number(document.getElementById("pAmt").value) || 0;
+  var rate = Number(document.getElementById("pRate").value) || 0;
+  var months = Number(document.getElementById("pMonths").value) || 0;
+  var paid = Number(document.getElementById("pPaid").value) || 0;
+  var inst = Number(document.getElementById("pInst").value) || 0;
+  var type = document.getElementById("pType").value;
+  var lDate = document.getElementById("pLoanDate").value || today();
+  var dDate = document.getElementById("pDate").value || today();
+  if (!name || amt <= 0) { alert("Enter Name and Amount!"); return; }
+  var mi = (amt * rate) / 100;
+  var bal = Math.max(0, (amt + (mi * months)) - paid);
+  if (inst <= 0 && mi > 0) inst = mi;
+  var hist = paid > 0 ? [{ date: lDate, note: "Initial Paid (" + months + " Months)", amt: paid, bal: bal }] : [];
+  db.push({ id: Date.now(), name: name, loanDate: lDate, dueDate: dDate, amt: amt, rate: rate, intAmt: mi, inst: inst, type: type, bal: bal, history: hist });
+  save();
+  document.getElementById("pName").value = ""; document.getElementById("pAmt").value = ""; document.getElementById("pRate").value = ""; document.getElementById("pMonths").value = "1"; document.getElementById("pPaid").value = "0"; document.getElementById("pInst").value = "";
+  calc(); show();
+}
+
+function find(id) { return db.find(function(x) { return x.id === id; }); }
+function pay(id) {
+  var x = find(id); if (!x) return;
+  var p = Number(prompt(x.name + " Paid Amount (Balance: " + x.bal + "):", x.inst));
+  if (p > 0) {
+    var cd = prompt("Collected Date (DD/MM/YYYY):", today()) || today();
+    var nt = prompt("Month / Note:", "Installment Paid") || "Installment Paid";
+    x.bal = Math.max(0, x.bal - p);
+    x.history.push({ date: cd, note: nt, amt: p, bal: x.bal });
+    var dt = toDate(x.dueDate);
+    if (x.type === "Daily") dt.setDate(dt.getDate() + 1); else dt.setMonth(dt.getMonth() + 1);
+    x.dueDate = getDMY(dt);
+    save(); show(); hist(id);
+  }
+}
+function oldMonth(id) {
+  var x = find(id); if (!x) return;
+  var m = prompt("Month Name (e.g. 7th Month Interest):", "7th Month Interest"); if (!m) return;
+  var cd = prompt("Collected Date (DD/MM/YYYY):", today()) || today();
+  var p = Number(prompt("Amount:", x.intAmt)) || 0;
+  if (p > 0) { x.history.push({ date: cd, note: m, amt: p, bal: x.bal }); save(); hist(id); }
+}
+function addInt(id) {
+  var x = find(id); if (!x) return;
+  var ni = (x.amt * x.rate) / 100;
+  if (confirm("Add next month interest " + ni + "?")) {
+    x.bal += ni; x.history.push({ date: today(), note: "Next Month Interest (+)", amt: ni, bal: x.bal });
+    save(); show(); hist(id);
+  }
+}
+function hist(id) {
+  var x = find(id); if (!x) return;
+  document.getElementById("histTitle").innerText = x.name + " - History";
+  var h = x.history.length ? "" : "<tr><td colspan='5'>No records.</td></tr>";
+  var n = 0;
+  x.history.forEach(function(r) { n++; h += "<tr><td>" + n + "</td><td><b>" + r.date + "</b></td><td>" + r.note + "</td><td>" + r.amt + "</td><td>" + r.bal + "</td></tr>"; });
+  document.getElementById("histBody").innerHTML = h;
+  document.getElementById("histBox").style.display = "block";
+}
+function closeHist() { document.getElementById("histBox").style.display = "none"; }
+function del(id) { if (confirm("Delete?")) { db = db.filter(function(x) { return x.id !== id; }); save(); show(); closeHist(); } }
+function exportData() {
+  if (!db.length) { alert("No data!"); return; }
+  var csv = "Name,Loan Date,Initial,Interest %,Monthly Interest,Installment,Type,Balance,Next Due\n";
+  db.forEach(function(x) { csv += '"' + x.name + '","' + x.loanDate + '",' + x.amt + ',' + x.rate + ',' + x.intAmt + ',' + x.inst + ',"' + x.type + '",' + x.bal + ',"' + x.dueDate + '"\n'; });
+  var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "Loans_" + today().replace(/\//g, "-") + ".csv"; a.click();
+}
+function show() {
+  var rows = "", rem = "", now = new Date(); now.setHours(0, 0, 0, 0);
+  db.forEach(function(x) {
+    var d = toDate(x.dueDate); d.setHours(0, 0, 0, 0);
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js"); }

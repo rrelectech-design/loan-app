@@ -11,9 +11,10 @@
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }
-  .box { max-width: 950px; margin: auto; background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-  .top { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px; }
+  .box { max-width: 980px; margin: auto; background: #fff; padding: 14px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 10px; }
   h2 { margin: 0; color: #1e3a8a; font-size: 18px; }
+  .top-btns { display: flex; gap: 6px; flex-wrap: wrap; }
   .rem { background: #fffbeb; border-left: 5px solid #f59e0b; padding: 10px; margin-bottom: 12px; border-radius: 5px; font-size: 13px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; background: #f8fafc; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
   .field { display: flex; flex-direction: column; }
@@ -25,7 +26,7 @@
   table { width: 100%; border-collapse: collapse; min-width: 600px; }
   th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 13px; }
   th { background: #1e293b; color: #fff; }
-  .btn { padding: 7px 9px; border: none; border-radius: 5px; color: #fff; cursor: pointer; font-size: 12px; margin: 2px; font-weight: bold; }
+  .btn { padding: 7px 10px; border: none; border-radius: 5px; color: #fff; cursor: pointer; font-size: 12px; margin: 2px; font-weight: bold; }
   .hist { margin-top: 14px; padding: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; display: none; }
 </style>
 </head>
@@ -33,7 +34,12 @@
 <div class="box">
   <div class="top">
     <h2>💰 RK Finance - Loan Manager</h2>
-    <button type="button" class="btn" style="background:#0f766e;" id="btnExcel">Export Excel</button>
+    <div class="top-btns">
+      <button type="button" class="btn" style="background:#2563eb;" id="btnBackup">💾 Backup</button>
+      <button type="button" class="btn" style="background:#7c3aed;" id="btnRestore">📂 Restore</button>
+      <input type="file" id="fileRestore" accept=".json" style="display:none;">
+      <button type="button" class="btn" style="background:#0f766e;" id="btnExcel">📊 Excel</button>
+    </div>
   </div>
   <div class="rem"><b>🔔 Today Reminders:</b><div id="remBox" style="margin-top:4px;">No dues today.</div></div>
   <div class="grid">

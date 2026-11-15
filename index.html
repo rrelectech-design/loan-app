@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1e3a8a">
+<meta name="theme-color" content="#E5C29F">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
-<title>Loan Manager</title>
+<title>RK Finance - Loan Manager</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 10px; margin: 0; }
@@ -32,23 +32,23 @@
 <body>
 <div class="box">
   <div class="top">
-    <h2>💰 Loan & Interest App</h2>
-    <button class="btn" style="background:#0f766e;" onclick="exportData()">Export Excel</button>
+    <h2>💰 RK Finance - Loan & Interest App</h2>
+    <button type="button" class="btn" style="background:#0f766e;" id="btnExcel">Export Excel</button>
   </div>
   <div class="rem"><b>🔔 Today Reminders:</b><div id="remBox" style="margin-top:4px;">No dues today.</div></div>
   <div class="grid">
     <div class="field"><label>Name</label><input type="text" id="pName" placeholder="Raj Mess"></div>
-    <div class="field"><label>Initial Amount</label><input type="number" id="pAmt" placeholder="1500000" oninput="calc()"></div>
-    <div class="field"><label>Interest %</label><input type="number" id="pRate" placeholder="2.5" step="0.1" oninput="calc()"></div>
-    <div class="field"><label>Interest Months</label><input type="number" id="pMonths" value="1" oninput="calc()"></div>
-    <div class="field"><label>Already Paid</label><input type="number" id="pPaid" value="0" oninput="calc()"></div>
+    <div class="field"><label>Initial Amount</label><input type="number" id="pAmt" placeholder="1500000"></div>
+    <div class="field"><label>Interest %</label><input type="number" id="pRate" placeholder="2.5" step="0.1"></div>
+    <div class="field"><label>Interest Months</label><input type="number" id="pMonths" value="1"></div>
+    <div class="field"><label>Already Paid</label><input type="number" id="pPaid" value="0"></div>
     <div class="field"><label>Installment</label><input type="number" id="pInst" placeholder="37500"></div>
     <div class="field"><label>Type</label><select id="pType"><option value="Monthly">Monthly</option><option value="Daily">Daily</option></select></div>
     <div class="field"><label>Loan Date (DD/MM/YYYY)</label><input type="text" id="pLoanDate"></div>
     <div class="field"><label>Next Due (DD/MM/YYYY)</label><input type="text" id="pDate"></div>
   </div>
   <div class="preview" id="previewBox">1 Month Interest: 0 | Total Interest: 0 | Current Balance: 0</div>
-  <button class="add-btn" onclick="addLoan()">+ Add Loan Account</button>
+  <button type="button" class="add-btn" id="btnAdd">+ Add Loan Account</button>
   <div class="tbl-wrap">
     <table>
       <thead><tr><th>Name & Date</th><th>Initial</th><th>Interest %</th><th>Installment</th><th>Balance</th><th>Next Due</th><th>Actions</th></tr></thead>
@@ -56,7 +56,7 @@
     </table>
   </div>
   <div id="histBox" class="hist">
-    <div style="display:flex; justify-content:space-between; align-items:center;"><b id="histTitle">History</b><button class="btn" style="background:#64748b;" onclick="closeHist()">Close</button></div>
+    <div style="display:flex; justify-content:space-between; align-items:center;"><b id="histTitle">History</b><button type="button" class="btn" style="background:#64748b;" id="btnCloseHist">Close</button></div>
     <div class="tbl-wrap">
       <table><thead><tr><th>#</th><th>Date</th><th>Month / Note</th><th>Amount</th><th>Balance</th></tr></thead><tbody id="histBody"></tbody></table>
     </div>
@@ -65,20 +65,36 @@
 
 <script>
 var db = [];
+
 function getDMY(d) {
   var dd = ("0" + d.getDate()).slice(-2);
   var mm = ("0" + (d.getMonth() + 1)).slice(-2);
   return dd + "/" + mm + "/" + d.getFullYear();
 }
-function today() { return getDMY(new Date()); }
+
+function today() {
+  return getDMY(new Date());
+}
+
 function toDate(s) {
   if (!s || s.length < 10) return new Date();
-  return new Date(Number(s.slice(6, 10)), Number(s.slice(3, 5)) - 1, Number(s.slice(0, 2)));
+  var dd = Number(s.slice(0, 2));
+  var mm = Number(s.slice(3, 5)) - 1;
+  var yy = Number(s.slice(6, 10));
+  return new Date(yy, mm, dd);
 }
+
 document.getElementById("pLoanDate").value = today();
 document.getElementById("pDate").value = today();
-try { var s = localStorage.getItem("loan_mobile_app"); if (s) db = JSON.parse(s); } catch (e) {}
-function save() { try { localStorage.setItem("loan_mobile_app", JSON.stringify(db)); } catch (e) {} }
+
+try {
+  var s = localStorage.getItem("rk_finance_db");
+  if (s) db = JSON.parse(s);
+} catch (e) {}
+
+function save() {
+  try { localStorage.setItem("rk_finance_db", JSON.stringify(db)); } catch (e) {}
+}
 
 function calc() {
   var a = Number(document.getElementById("pAmt").value) || 0;
@@ -88,8 +104,14 @@ function calc() {
   var mi = (a * r) / 100;
   var ti = mi * m;
   var b = Math.max(0, (a + ti) - p);
-  document.getElementById("previewBox").innerText = "1 Month Interest: " + mi + " | " + m + " Months Interest: " + ti + " | Current Balance: " + b;
+  document.getElementById("previewBox").innerText =
+    "1 Month Interest: " + mi + " | " + m + " Months Interest: " + ti + " | Current Balance: " + b;
 }
+
+document.getElementById("pAmt").addEventListener("input", calc);
+document.getElementById("pRate").addEventListener("input", calc);
+document.getElementById("pMonths").addEventListener("input", calc);
+document.getElementById("pPaid").addEventListener("input", calc);
 
 function addLoan() {
   var name = document.getElementById("pName").value.trim();
@@ -101,20 +123,51 @@ function addLoan() {
   var type = document.getElementById("pType").value;
   var lDate = document.getElementById("pLoanDate").value || today();
   var dDate = document.getElementById("pDate").value || today();
-  if (!name || amt <= 0) { alert("Enter Name and Amount!"); return; }
+
+  if (!name || amt <= 0) {
+    alert("Please enter Name and Initial Amount!");
+    return;
+  }
+
   var mi = (amt * rate) / 100;
   var bal = Math.max(0, (amt + (mi * months)) - paid);
   if (inst <= 0 && mi > 0) inst = mi;
-  var hist = paid > 0 ? [{ date: lDate, note: "Initial Paid (" + months + " Months)", amt: paid, bal: bal }] : [];
-  db.push({ id: Date.now(), name: name, loanDate: lDate, dueDate: dDate, amt: amt, rate: rate, intAmt: mi, inst: inst, type: type, bal: bal, history: hist });
+
+  var hist = [];
+  if (paid > 0) {
+    hist.push({ date: lDate, note: "Initial Paid (" + months + " Months)", amt: paid, bal: bal });
+  }
+
+  db.push({
+    id: Date.now(), name: name, loanDate: lDate, dueDate: dDate,
+    amt: amt, rate: rate, intAmt: mi, inst: inst, type: type, bal: bal, history: hist
+  });
+
   save();
-  document.getElementById("pName").value = ""; document.getElementById("pAmt").value = ""; document.getElementById("pRate").value = ""; document.getElementById("pMonths").value = "1"; document.getElementById("pPaid").value = "0"; document.getElementById("pInst").value = "";
-  calc(); show();
+  document.getElementById("pName").value = "";
+  document.getElementById("pAmt").value = "";
+  document.getElementById("pRate").value = "";
+  document.getElementById("pMonths").value = "1";
+  document.getElementById("pPaid").value = "0";
+  document.getElementById("pInst").value = "";
+  document.getElementById("pLoanDate").value = today();
+  document.getElementById("pDate").value = today();
+  calc();
+  show();
 }
 
-function find(id) { return db.find(function(x) { return x.id === id; }); }
+document.getElementById("btnAdd").addEventListener("click", addLoan);
+document.getElementById("btnCloseHist").addEventListener("click", function() {
+  document.getElementById("histBox").style.display = "none";
+});
+
+function find(id) {
+  return db.find(function(x) { return x.id === id; });
+}
+
 function pay(id) {
-  var x = find(id); if (!x) return;
+  var x = find(id);
+  if (!x) return;
   var p = Number(prompt(x.name + " Paid Amount (Balance: " + x.bal + "):", x.inst));
   if (p > 0) {
     var cd = prompt("Collected Date (DD/MM/YYYY):", today()) || today();
@@ -122,45 +175,56 @@ function pay(id) {
     x.bal = Math.max(0, x.bal - p);
     x.history.push({ date: cd, note: nt, amt: p, bal: x.bal });
     var dt = toDate(x.dueDate);
-    if (x.type === "Daily") dt.setDate(dt.getDate() + 1); else dt.setMonth(dt.getMonth() + 1);
+    if (x.type === "Daily") dt.setDate(dt.getDate() + 1);
+    else dt.setMonth(dt.getMonth() + 1);
     x.dueDate = getDMY(dt);
     save(); show(); hist(id);
   }
 }
+
 function oldMonth(id) {
-  var x = find(id); if (!x) return;
-  var m = prompt("Month Name (e.g. 7th Month Interest):", "7th Month Interest"); if (!m) return;
+  var x = find(id);
+  if (!x) return;
+  var m = prompt("Month Name (e.g. 7th Month Interest):", "7th Month Interest");
+  if (!m) return;
   var cd = prompt("Collected Date (DD/MM/YYYY):", today()) || today();
   var p = Number(prompt("Amount:", x.intAmt)) || 0;
-  if (p > 0) { x.history.push({ date: cd, note: m, amt: p, bal: x.bal }); save(); hist(id); }
+  if (p > 0) {
+    x.history.push({ date: cd, note: m, amt: p, bal: x.bal });
+    save(); hist(id);
+  }
 }
+
 function addInt(id) {
-  var x = find(id); if (!x) return;
+  var x = find(id);
+  if (!x) return;
   var ni = (x.amt * x.rate) / 100;
   if (confirm("Add next month interest " + ni + "?")) {
-    x.bal += ni; x.history.push({ date: today(), note: "Next Month Interest (+)", amt: ni, bal: x.bal });
+    x.bal += ni;
+    x.history.push({ date: today(), note: "Next Month Interest (+)", amt: ni, bal: x.bal });
     save(); show(); hist(id);
   }
 }
+
 function hist(id) {
-  var x = find(id); if (!x) return;
+  var x = find(id);
+  if (!x) return;
   document.getElementById("histTitle").innerText = x.name + " - History";
   var h = x.history.length ? "" : "<tr><td colspan='5'>No records.</td></tr>";
   var n = 0;
-  x.history.forEach(function(r) { n++; h += "<tr><td>" + n + "</td><td><b>" + r.date + "</b></td><td>" + r.note + "</td><td>" + r.amt + "</td><td>" + r.bal + "</td></tr>"; });
+  x.history.forEach(function(r) {
+    n++;
+    h += "<tr><td>" + n + "</td><td><b>" + r.date + "</b></td><td>" + r.note + "</td><td>" + r.amt + "</td><td>" + r.bal + "</td></tr>";
+  });
   document.getElementById("histBody").innerHTML = h;
   document.getElementById("histBox").style.display = "block";
 }
-function closeHist() { document.getElementById("histBox").style.display = "none"; }
-function del(id) { if (confirm("Delete?")) { db = db.filter(function(x) { return x.id !== id; }); save(); show(); closeHist(); } }
-function exportData() {
-  if (!db.length) { alert("No data!"); return; }
-  var csv = "Name,Loan Date,Initial,Interest %,Monthly Interest,Installment,Type,Balance,Next Due\n";
-  db.forEach(function(x) { csv += '"' + x.name + '","' + x.loanDate + '",' + x.amt + ',' + x.rate + ',' + x.intAmt + ',' + x.inst + ',"' + x.type + '",' + x.bal + ',"' + x.dueDate + '"\n'; });
-  var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "Loans_" + today().replace(/\//g, "-") + ".csv"; a.click();
+
+function del(id) {
+  if (confirm("Delete?")) {
+    db = db.filter(function(x) { return x.id !== id; });
+    save(); show();
+    document.getElementById("histBox").style.display = "none";
+  }
 }
-function show() {
-  var rows = "", rem = "", now = new Date(); now.setHours(0, 0, 0, 0);
-  db.forEach(function(x) {
-    var d = toDate(x.dueDate); d.setHours(0, 0, 0, 0);
-if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js"); }
+

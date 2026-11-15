@@ -166,6 +166,38 @@ function del(id) {
   }
 }
 
+document.getElementById("btnBackup").onclick = function() {
+  if (!db.length) { alert("No data to backup!"); return; }
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], { type: "application/json" }));
+  a.download = "RK_Finance_Backup_" + isoToDMY(todayISO()).replace(/\//g, "-") + ".json";
+  a.click();
+};
+
+document.getElementById("btnRestore").onclick = function() {
+  document.getElementById("fileRestore").click();
+};
+
+document.getElementById("fileRestore").onchange = function(e) {
+  var file = e.target.files.item(0);
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var data = JSON.parse(ev.target.result);
+      if (Array.isArray(data)) {
+        db = data;
+        save();
+        show();
+        alert("Data restored successfully!");
+      }
+    } catch (err) {
+      alert("Invalid backup file!");
+    }
+  };
+  reader.readAsText(file);
+};
+
 document.getElementById("btnExcel").onclick = function() {
   if (!db.length) { alert("No data!"); return; }
   var csv = "Name,Loan Date,Initial,Interest %,Monthly Interest,Installment,Type,Balance,Next Due\n";
@@ -194,6 +226,10 @@ function show() {
   });
   document.getElementById("listBody").innerHTML = rows;
   document.getElementById("remBox").innerHTML = rem || "No dues today.";
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
 }
 
 show();

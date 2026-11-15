@@ -17,6 +17,15 @@ function dmyToISO(dmy) {
   return dmy.slice(6, 10) + "-" + dmy.slice(3, 5) + "-" + dmy.slice(0, 2);
 }
 
+function addOneStep(curISO, type) {
+  var dt = new Date(curISO + "T00:00:00");
+  if (type === "Daily") dt.setDate(dt.getDate() + 1);
+  else dt.setMonth(dt.getMonth() + 1);
+  var mm = ("0" + (dt.getMonth() + 1)).slice(-2);
+  var dd = ("0" + dt.getDate()).slice(-2);
+  return dt.getFullYear() + "-" + mm + "-" + dd;
+}
+
 document.getElementById("pLoanDate").value = todayISO();
 document.getElementById("pDate").value = todayISO();
 
@@ -104,17 +113,12 @@ function pay(id) {
   if (!x) return;
   var p = Number(prompt(x.name + " Paid Amount (Balance: " + x.bal + "):", x.inst));
   if (p > 0) {
-    var cd = prompt("Collected Date (DD/MM/YYYY):", isoToDMY(todayISO())) || isoToDMY(todayISO());
+    var cd = prompt("Collected Date (DD/MM/YYYY):", x.dueDate) || x.dueDate;
     var nt = prompt("Month / Note:", "Installment Paid") || "Installment Paid";
     x.bal = Math.max(0, x.bal - p);
     x.history.push({ date: cd, note: nt, amt: p, bal: x.bal });
     var curISO = x.dueISO || dmyToISO(x.dueDate);
-    var dt = new Date(curISO + "T00:00:00");
-    if (x.type === "Daily") dt.setDate(dt.getDate() + 1);
-    else dt.setMonth(dt.getMonth() + 1);
-    var mm = ("0" + (dt.getMonth() + 1)).slice(-2);
-    var dd = ("0" + dt.getDate()).slice(-2);
-    x.dueISO = dt.getFullYear() + "-" + mm + "-" + dd;
+    x.dueISO = addOneStep(curISO, x.type);
     x.dueDate = isoToDMY(x.dueISO);
     save(); show(); hist(id);
   }
@@ -123,13 +127,27 @@ function pay(id) {
 function oldMonth(id) {
   var x = find(id);
   if (!x) return;
-  var m = prompt("Month Name (e.g. 7th Month Interest):", "7th Month Interest");
+  var m = prompt("Month Name (e.g. 8th Month Interest):", "Month Interest");
   if (!m) return;
-  var cd = prompt("Collected Date (DD/MM/YYYY):", isoToDMY(todayISO())) || isoToDMY(todayISO());
-  var p = Number(prompt("Amount:", x.intAmt)) || 0;
+  var cd = prompt("Collected Date (DD/MM/YYYY):", x.dueDate) || x.dueDate;
+  var p = Number(prompt("Collected Amount:", x.intAmt)) || 0;
   if (p > 0) {
     x.history.push({ date: cd, note: m, amt: p, bal: x.bal });
-    save(); hist(id);
+    var curISO = x.dueISO || dmyToISO(x.dueDate);
+    x.dueISO = addOneStep(curISO, x.type);
+    x.dueDate = isoToDMY(x.dueISO);
+    save(); show(); hist(id);
+  }
+}
+
+function editDue(id) {
+  var x = find(id);
+  if (!x) return;
+  var nd = prompt("Enter Correct Next Due Date (DD/MM/YYYY):", x.dueDate);
+  if (nd && nd.length === 10) {
+    x.dueDate = nd;
+    x.dueISO = dmyToISO(nd);
+    save(); show();
   }
 }
 
@@ -166,37 +184,39 @@ function del(id) {
   }
 }
 
-document.getElementById("btnBackup").onclick = function() {
-  if (!db.length) { alert("No data to backup!"); return; }
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], { type: "application/json" }));
-  a.download = "RK_Finance_Backup_" + isoToDMY(todayISO()).replace(/\//g, "-") + ".json";
-  a.click();
-};
-
-document.getElementById("btnRestore").onclick = function() {
-  document.getElementById("fileRestore").click();
-};
-
-document.getElementById("fileRestore").onchange = function(e) {
-  var file = e.target.files.item(0);
-  if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(ev) {
-    try {
-      var data = JSON.parse(ev.target.result);
-      if (Array.isArray(data)) {
-        db = data;
-        save();
-        show();
-        alert("Data restored successfully!");
-      }
-    } catch (err) {
-      alert("Invalid backup file!");
-    }
+if (document.getElementById("btnBackup")) {
+  document.getElementById("btnBackup").onclick = function() {
+    if (!db.length) { alert("No data to backup!"); return; }
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(db)], { type: "application/json" }));
+    a.download = "RK_Finance_Backup_" + isoToDMY(todayISO()).replace(/\//g, "-") + ".json";
+    a.click();
   };
-  reader.readAsText(file);
-};
+}
+
+if (document.getElementById("btnRestore")) {
+  document.getElementById("btnRestore").onclick = function() {
+    document.getElementById("fileRestore").click();
+  };
+}
+
+if (document.getElementById("fileRestore")) {
+  document.getElementById("fileRestore").onchange = function(e) {
+    var file = e.target.files.item(0);
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var data = JSON.parse(ev.target.result);
+        if (Array.isArray(data)) {
+          db = data; save(); show();
+          alert("Data restored successfully!");
+        }
+      } catch (err) { alert("Invalid backup file!"); }
+    };
+    reader.readAsText(file);
+  };
+}
 
 document.getElementById("btnExcel").onclick = function() {
   if (!db.length) { alert("No data!"); return; }
@@ -215,9 +235,9 @@ function show() {
   db.forEach(function(x) {
     var dISO = x.dueISO || dmyToISO(x.dueDate);
     if (x.bal > 0 && dISO <= now) {
-      rem += "<div>• <b>" + x.name + "</b> - Due: " + x.inst + " | Balance: " + x.bal + "</div>";
+      rem += "<div>• <b>" + x.name + "</b> - Due: " + x.inst + " (" + x.dueDate + ") | Balance: " + x.bal + "</div>";
     }
-    rows += "<tr><td><b>" + x.name + "</b><br><small>" + x.loanDate + "</small></td><td>" + x.amt + "</td><td>" + x.rate + "% (" + x.intAmt + ")</td><td>" + x.inst + " (" + x.type + ")</td><td style='color:red;font-weight:bold;'>" + x.bal + "</td><td>" + (x.bal > 0 ? x.dueDate : "Paid") + "</td><td>" +
+    rows += "<tr><td><b>" + x.name + "</b><br><small>" + x.loanDate + "</small></td><td>" + x.amt + "</td><td>" + x.rate + "% (" + x.intAmt + ")</td><td>" + x.inst + " (" + x.type + ")</td><td style='color:red;font-weight:bold;'>" + x.bal + "</td><td>" + (x.bal > 0 ? x.dueDate + " <button class='btn' style='background:#64748b;padding:2px 5px;' onclick='editDue(" + x.id + ")'>✎</button>" : "Paid") + "</td><td>" +
       (x.bal > 0 ? "<button class='btn' style='background:#2563eb;' onclick='pay(" + x.id + ")'>Pay</button>" : "") +
       (x.bal > 0 && x.rate > 0 ? "<button class='btn' style='background:#d97706;' onclick='addInt(" + x.id + ")'>+Int</button>" : "") +
       "<button class='btn' style='background:#7c3aed;' onclick='oldMonth(" + x.id + ")'>+Old Month</button>" +
@@ -226,10 +246,6 @@ function show() {
   });
   document.getElementById("listBody").innerHTML = rows;
   document.getElementById("remBox").innerHTML = rem || "No dues today.";
-}
-
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
 }
 
 show();

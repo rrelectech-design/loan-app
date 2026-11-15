@@ -18,7 +18,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; background: #f8fafc; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
   .field { display: flex; flex-direction: column; }
   .field label { font-size: 11px; font-weight: bold; margin-bottom: 3px; color: #334155; }
-  input, select { padding: 9px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 14px; width: 100%; }
+  input, select { padding: 9px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 14px; width: 100%; background: #fff; }
   .preview { background: #ecfdf5; border: 2px solid #10b981; color: #065f46; padding: 10px; border-radius: 6px; font-weight: bold; margin-top: 10px; text-align: center; font-size: 13px; }
   .add-btn { width: 100%; padding: 13px; background: #16a34a; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; margin-top: 10px; cursor: pointer; }
   .tbl-wrap { overflow-x: auto; margin-top: 14px; }
@@ -32,7 +32,7 @@
 <body>
 <div class="box">
   <div class="top">
-    <h2>💰 RK Finance - Loan & Interest App</h2>
+    <h2>💰 RK Finance - Loan Manager</h2>
     <button type="button" class="btn" style="background:#0f766e;" id="btnExcel">Export Excel</button>
   </div>
   <div class="rem"><b>🔔 Today Reminders:</b><div id="remBox" style="margin-top:4px;">No dues today.</div></div>
@@ -44,8 +44,8 @@
     <div class="field"><label>Already Paid</label><input type="number" id="pPaid" value="0"></div>
     <div class="field"><label>Installment</label><input type="number" id="pInst" placeholder="37500"></div>
     <div class="field"><label>Type</label><select id="pType"><option value="Monthly">Monthly</option><option value="Daily">Daily</option></select></div>
-    <div class="field"><label>Loan Date (DD/MM/YYYY)</label><input type="text" id="pLoanDate"></div>
-    <div class="field"><label>Next Due (DD/MM/YYYY)</label><input type="text" id="pDate"></div>
+    <div class="field"><label>Loan Date (Calendar)</label><input type="date" id="pLoanDate"></div>
+    <div class="field"><label>Next Due (Calendar)</label><input type="date" id="pDate"></div>
   </div>
   <div class="preview" id="previewBox">1 Month Interest: 0 | Total Interest: 0 | Current Balance: 0</div>
   <button type="button" class="add-btn" id="btnAdd">+ Add Loan Account</button>
@@ -66,34 +66,33 @@
 <script>
 var db = [];
 
-function getDMY(d) {
-  var dd = ("0" + d.getDate()).slice(-2);
+function todayISO() {
+  var d = new Date();
   var mm = ("0" + (d.getMonth() + 1)).slice(-2);
-  return dd + "/" + mm + "/" + d.getFullYear();
+  var dd = ("0" + d.getDate()).slice(-2);
+  return d.getFullYear() + "-" + mm + "-" + dd;
 }
 
-function today() {
-  return getDMY(new Date());
+function isoToDMY(iso) {
+  if (!iso || iso.length < 10) return iso;
+  return iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4);
 }
 
-function toDate(s) {
-  if (!s || s.length < 10) return new Date();
-  var dd = Number(s.slice(0, 2));
-  var mm = Number(s.slice(3, 5)) - 1;
-  var yy = Number(s.slice(6, 10));
-  return new Date(yy, mm, dd);
+function dmyToISO(dmy) {
+  if (!dmy || dmy.length < 10) return todayISO();
+  return dmy.slice(6, 10) + "-" + dmy.slice(3, 5) + "-" + dmy.slice(0, 2);
 }
 
-document.getElementById("pLoanDate").value = today();
-document.getElementById("pDate").value = today();
+document.getElementById("pLoanDate").value = todayISO();
+document.getElementById("pDate").value = todayISO();
 
 try {
-  var s = localStorage.getItem("rk_finance_db");
+  var s = localStorage.getItem("rk_finance_v2");
   if (s) db = JSON.parse(s);
 } catch (e) {}
 
 function save() {
-  try { localStorage.setItem("rk_finance_db", JSON.stringify(db)); } catch (e) {}
+  try { localStorage.setItem("rk_finance_v2", JSON.stringify(db)); } catch (e) {}
 }
 
 function calc() {
@@ -121,8 +120,8 @@ function addLoan() {
   var paid = Number(document.getElementById("pPaid").value) || 0;
   var inst = Number(document.getElementById("pInst").value) || 0;
   var type = document.getElementById("pType").value;
-  var lDate = document.getElementById("pLoanDate").value || today();
-  var dDate = document.getElementById("pDate").value || today();
+  var lISO = document.getElementById("pLoanDate").value || todayISO();
+  var dISO = document.getElementById("pDate").value || todayISO();
 
   if (!name || amt <= 0) {
     alert("Please enter Name and Initial Amount!");
@@ -133,13 +132,15 @@ function addLoan() {
   var bal = Math.max(0, (amt + (mi * months)) - paid);
   if (inst <= 0 && mi > 0) inst = mi;
 
+  var lDMY = isoToDMY(lISO);
+  var dDMY = isoToDMY(dISO);
   var hist = [];
   if (paid > 0) {
-    hist.push({ date: lDate, note: "Initial Paid (" + months + " Months)", amt: paid, bal: bal });
+    hist.push({ date: lDMY, note: "Initial Paid (" + months + " Months)", amt: paid, bal: bal });
   }
 
   db.push({
-    id: Date.now(), name: name, loanDate: lDate, dueDate: dDate,
+    id: Date.now(), name: name, loanDate: lDMY, dueDate: dDMY, dueISO: dISO,
     amt: amt, rate: rate, intAmt: mi, inst: inst, type: type, bal: bal, history: hist
   });
 
@@ -150,8 +151,8 @@ function addLoan() {
   document.getElementById("pMonths").value = "1";
   document.getElementById("pPaid").value = "0";
   document.getElementById("pInst").value = "";
-  document.getElementById("pLoanDate").value = today();
-  document.getElementById("pDate").value = today();
+  document.getElementById("pLoanDate").value = todayISO();
+  document.getElementById("pDate").value = todayISO();
   calc();
   show();
 }
@@ -170,14 +171,18 @@ function pay(id) {
   if (!x) return;
   var p = Number(prompt(x.name + " Paid Amount (Balance: " + x.bal + "):", x.inst));
   if (p > 0) {
-    var cd = prompt("Collected Date (DD/MM/YYYY):", today()) || today();
+    var cd = prompt("Collected Date (DD/MM/YYYY):", isoToDMY(todayISO())) || isoToDMY(todayISO());
     var nt = prompt("Month / Note:", "Installment Paid") || "Installment Paid";
     x.bal = Math.max(0, x.bal - p);
     x.history.push({ date: cd, note: nt, amt: p, bal: x.bal });
-    var dt = toDate(x.dueDate);
+    var curISO = x.dueISO || dmyToISO(x.dueDate);
+    var dt = new Date(curISO + "T00:00:00");
     if (x.type === "Daily") dt.setDate(dt.getDate() + 1);
     else dt.setMonth(dt.getMonth() + 1);
-    x.dueDate = getDMY(dt);
+    var mm = ("0" + (dt.getMonth() + 1)).slice(-2);
+    var dd = ("0" + dt.getDate()).slice(-2);
+    x.dueISO = dt.getFullYear() + "-" + mm + "-" + dd;
+    x.dueDate = isoToDMY(x.dueISO);
     save(); show(); hist(id);
   }
 }
@@ -187,7 +192,7 @@ function oldMonth(id) {
   if (!x) return;
   var m = prompt("Month Name (e.g. 7th Month Interest):", "7th Month Interest");
   if (!m) return;
-  var cd = prompt("Collected Date (DD/MM/YYYY):", today()) || today();
+  var cd = prompt("Collected Date (DD/MM/YYYY):", isoToDMY(todayISO())) || isoToDMY(todayISO());
   var p = Number(prompt("Amount:", x.intAmt)) || 0;
   if (p > 0) {
     x.history.push({ date: cd, note: m, amt: p, bal: x.bal });
@@ -201,7 +206,7 @@ function addInt(id) {
   var ni = (x.amt * x.rate) / 100;
   if (confirm("Add next month interest " + ni + "?")) {
     x.bal += ni;
-    x.history.push({ date: today(), note: "Next Month Interest (+)", amt: ni, bal: x.bal });
+    x.history.push({ date: isoToDMY(todayISO()), note: "Next Month Interest (+)", amt: ni, bal: x.bal });
     save(); show(); hist(id);
   }
 }
@@ -214,17 +219,3 @@ function hist(id) {
   var n = 0;
   x.history.forEach(function(r) {
     n++;
-    h += "<tr><td>" + n + "</td><td><b>" + r.date + "</b></td><td>" + r.note + "</td><td>" + r.amt + "</td><td>" + r.bal + "</td></tr>";
-  });
-  document.getElementById("histBody").innerHTML = h;
-  document.getElementById("histBox").style.display = "block";
-}
-
-function del(id) {
-  if (confirm("Delete?")) {
-    db = db.filter(function(x) { return x.id !== id; });
-    save(); show();
-    document.getElementById("histBox").style.display = "none";
-  }
-}
-
